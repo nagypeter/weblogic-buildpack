@@ -20,7 +20,7 @@
 # e.g.  repository_root: "http://example.com/oracle-jre/{platform}/{architecture}"
 jre:
   version: 1.7.0_+
-  repository_root: ""
+  repository_root: "http://s3.eu-central-1.amazonaws.com/testbucket2peter/jre"
 memory_calculator:
   version: 1.+
   repository_root: "{default.repository.root}/memory-calculator/{platform}/{architecture}"
