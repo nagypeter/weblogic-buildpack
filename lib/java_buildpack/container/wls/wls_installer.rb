@@ -120,12 +120,18 @@ module JavaBuildpack
           copy_templates
           log_and_print("Installing WebLogic at : #{@wls_install_path}")
           update_template('/tmp/' + WLS_INSTALL_RESPONSE_FILE, WLS_INSTALL_PATH_TEMPLATE, @wls_install_path)
+          log_and_print("Log point : 1")
           update_template('/tmp/' + ORA_INSTALL_INVENTORY_FILE, WLS_ORA_INVENTORY_TEMPLATE, WLS_ORA_INV_INSTALL_PATH)
+          log_and_print("Log point : 2")
 
           # Check whether running on non-linux machine, to pick the correct JAVA_HOME location
           @java_home = check_and_reset_java_home_for_non_linux(@java_home)
+          
+          log_and_print("Log point : 3")
 
           install_command = construct_install_command(install_binary_file)
+          
+          log_and_print("Log point : 4")
 
           log("Starting WebLogic Install with command:  #{install_command}")
           system " #{install_command} > /tmp/install.log; mv /tmp/install.log #{@wls_sandbox_root};"
