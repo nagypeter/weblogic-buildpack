@@ -134,7 +134,9 @@ module JavaBuildpack
           log_and_print("Log point : 4")
 
           log("Starting WebLogic Install with command:  #{install_command}")
+          log_and_print("Log point : 40")
           system " #{install_command} > /tmp/install.log; mv /tmp/install.log #{@wls_sandbox_root};"
+          log_and_print("Log point : 41")
           log("Finished running install, output saved at: #{@wls_sandbox_root}/install.log")
 
           {
@@ -225,7 +227,7 @@ module JavaBuildpack
           install_command = install_pre_args + install_command_args + install_post_args
 
           install_command
-          log_and_print("Log point : 8 #{install_command}")  
+          log_and_print("Log point : 9 #{install_command}")  
         end
 
         def windows?
