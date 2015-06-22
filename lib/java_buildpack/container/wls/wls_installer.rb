@@ -192,7 +192,10 @@ module JavaBuildpack
         end
 
         def construct_install_command(install_binary_file)
+        
+        log_and_print("Log point : 5 #{install_binary_file}")
           java_binary = "#{@java_home}/bin/java"
+        log_and_print("Log point : 6 #{java_binary}")  
 
           # There appears to be a problem running the java -jar on the cached jar file with java being unable to get to
           # the manifest correctly for some strange reason
@@ -200,9 +203,11 @@ module JavaBuildpack
           # fine if its foo.jar or anything simpler.
           # So, create a temporary link to the jar with a simpler name and then run the install..
           if install_binary_file[/\.jar/]
+          log_and_print("Log point : 7 ")  
             new_binary_path      = '/tmp/wls_tmp_installer.jar'
             install_command_args = " #{java_binary} -Djava.security.egd=file:/dev/./urandom -jar #{new_binary_path} "
           else
+          log_and_print("Log point : 8 ")  
             new_binary_path      = '/tmp/wls_tmp_installer.bin'
             install_command_args = " #{new_binary_path} -J-Djava.security.egd=file:/dev/./urandom "
           end
@@ -220,6 +225,7 @@ module JavaBuildpack
           install_command = install_pre_args + install_command_args + install_post_args
 
           install_command
+          log_and_print("Log point : 8 #{install_command}")  
         end
 
         def windows?
