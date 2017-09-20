@@ -16,7 +16,7 @@
 # Configuration for the WebLogic container
 ---
 # You must specify a the repository root of an Oracle WebLogic repository. Please see the documentation for more detail.
-# example repository_root: "http://example.com/oracle-wls/{platform}/{architecture}"
+# example:  repository_root: "http://example.com/oracle-wls/{platform}/{architecture}"
 
 version: 12.1.+
 repository_root: ""
