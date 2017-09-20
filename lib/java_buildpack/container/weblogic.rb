@@ -1,6 +1,5 @@
-# Encoding: utf-8
-# Cloud Foundry Java Buildpack
-# Copyright (c) 2013 the original author or authors.
+# Cloud Foundry WebLogic Buildpack
+# Copyright 2013-2017 the original author or authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +47,7 @@ module JavaBuildpack
 
         if @supports
           @wls_version, @wls_uri = JavaBuildpack::Repository::ConfiguredItem
-                                     .find_item(@component_name, @configuration) do |candidate_version|
+                                   .find_item(@component_name, @configuration) do |candidate_version|
             candidate_version.check_size(3)
           end
 
@@ -106,7 +105,8 @@ module JavaBuildpack
         monitor_agent  = JavaBuildpack::Container::Wls::MonitorAgent.new(@application)
         monitor_script = monitor_agent.monitor_script
 
-        releaser             = JavaBuildpack::Container::Wls::WlsReleaser.new(@application, @droplet, @domain_home,
+        releaser             = JavaBuildpack::Container::Wls::WlsReleaser.new(@application, @app_config_cache_root,
+                                                                              @droplet, @domain_home,
                                                                               @server_name, @start_in_wlx_mode)
         pre_start_script     = releaser.pre_start
         post_shutdown_script = releaser.post_shutdown
@@ -166,7 +166,7 @@ module JavaBuildpack
         # If there is no Domain Config yaml file, copy over the buildpack bundled basic domain configs.
         # Create the appconfig_cache_root '.wls' directory under the App Root as needed
         unless @wls_domain_yaml_config
-          system "mkdir #{@app_config_cache_root} 2>/dev/null; " \
+          system "mkdir -p #{@app_config_cache_root} 2>/dev/null; " \
                   " cp  #{@buildpack_config_cache_root}/*.yml #{@app_config_cache_root}"
 
           @wls_domain_yaml_config = Dir.glob("#{@app_config_cache_root}/*.yml")[0]
@@ -174,11 +174,11 @@ module JavaBuildpack
         end
 
         # For now, expecting only one script to be run to create the domain
-        @wls_domain_config_script = Dir.glob("#{@app_config_cache_root}/#{WLS_SCRIPT_CACHE_DIR}/*.py")[0]
+        @wls_domain_config_script = Dir.glob("#{@app_config_cache_root}/#{SCRIPT_CACHE_DIR}/*.py")[0]
 
         # If there is no Domain Script, use the buildpack bundled script.
         unless @wls_domain_config_script
-          @wls_domain_config_script = Dir.glob("#{@buildpack_config_cache_root}/#{WLS_SCRIPT_CACHE_DIR}/*.py")[0]
+          @wls_domain_config_script = Dir.glob("#{@buildpack_config_cache_root}/#{SCRIPT_CACHE_DIR}/*.py")[0]
           log('No Domain creation script found, reusing one from the buildpack bundled template!!')
         end
 
@@ -280,7 +280,8 @@ module JavaBuildpack
           'wls_install'              => @wls_install,
           'wls_domain_yaml_config'   => @wls_domain_yaml_config,
           'wls_domain_config_script' => @wls_domain_config_script,
-          'wls_domain_path'          => @wls_domain_path
+          'wls_domain_path'          => @wls_domain_path,
+          'wls_buildpack_config_cache_root' => @buildpack_config_cache_root
         }
 
         configurer = JavaBuildpack::Container::Wls::WlsConfigurer.new(configuration_map)
@@ -292,7 +293,7 @@ module JavaBuildpack
         vcap_application_env_value = ENV['VCAP_APPLICATION']
 
         return unless vcap_application_env_value
-        vcap_app_map = YAML.load(vcap_application_env_value)
+        vcap_app_map = YAML.safe_load(vcap_application_env_value)
 
         # name     = vcap_app_map['name']
         @app_name    = vcap_app_map['application_name']
@@ -338,7 +339,7 @@ module JavaBuildpack
         return unless (parent + '/' + child).exist?
 
         # Possible the APP-INF folder got stripped out as it didn't contain anything
-        system "mkdir #{parent}/#{child}"
+        system "mkdir -p #{parent}/#{child}"
       end
 
       # Log a message

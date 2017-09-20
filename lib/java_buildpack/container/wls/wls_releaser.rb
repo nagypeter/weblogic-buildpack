@@ -1,6 +1,5 @@
-# Encoding: utf-8
-# Cloud Foundry Java Buildpack
-# Copyright 2013-2015 the original author or authors.
+# Cloud Foundry WebLogic Buildpack
+# Copyright 2013-2017 the original author or authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,12 +25,13 @@ module JavaBuildpack
       class WlsReleaser
         include JavaBuildpack::Container::Wls::WlsConstants
 
-        def initialize(application, droplet, domain_home, server_name, start_in_wlx_mode)
+        def initialize(application, app_config_cache_root, droplet, domain_home, server_name, start_in_wlx_mode)
           @droplet           = droplet
           @application       = application
           @domain_home       = domain_home
           @server_name       = server_name
           @start_in_wlx_mode = start_in_wlx_mode
+          @app_config_cache_root = app_config_cache_root
 
           create_scripts
         end
@@ -50,22 +50,40 @@ module JavaBuildpack
 
         def create_scripts
           system "/bin/cp #{START_STOP_HOOKS_SRC_PATH}/* #{@application.root}/"
-          system "chmod +x #{@application.root}/*.sh"
 
           @pre_start_script = Dir.glob("#{@application.root}/#{PRE_START_SCRIPT}")[0]
           @post_stop_script = Dir.glob("#{@application.root}/#{POST_STOP_SCRIPT}")[0]
+
+          # Change this to add any number of custom scripts/resources to app root
+          if CUSTOM_RESOURCES_PRESENT
+            system "/bin/cp #{CUSTOM1_HOOKS_SRC_PATH}/*.sh #{@application.root}/"
+            system "/bin/cp -r #{CUSTOM1_RESOURCE_PATH} #{@app_config_cache_root}"
+            @pre_custom1_start_script = Dir.glob("#{@application.root}/#{PRE_CUSTOM1_START_SCRIPT}")[0]
+          end
+
+          system "chmod +x #{@application.root}/*.sh"
+          system "chmod -R 755 #{@app_config_cache_root}"
 
           modify_pre_start_script
         end
 
         # The Pre-Start script
         def pre_start
-          "/bin/bash ./#{PRE_START_SCRIPT}"
+          # Uncomment following line if need to add custom hook script to be part of the startup
+          if CUSTOM_RESOURCES_PRESENT
+            "/bin/bash ./#{PRE_START_SCRIPT} && . ./#{PRE_CUSTOM1_START_SCRIPT} "
+          else
+            "/bin/bash ./#{PRE_START_SCRIPT}"
+          end
         end
 
         # The Post-Shutdown script
         def post_shutdown
-          "/bin/bash ./#{POST_STOP_SCRIPT}"
+          if CUSTOM_RESOURCES_PRESENT
+            "/bin/bash ./#{POST_STOP_SCRIPT} && . ./#{POST_CUSTOM1_STOP_SCRIPT}"
+          else
+            "/bin/bash ./#{POST_STOP_SCRIPT}"
+          end
         end
 
         private
@@ -75,6 +93,34 @@ module JavaBuildpack
         POST_STOP_SCRIPT = 'postStop.sh'.freeze
 
         START_STOP_HOOKS_SRC_PATH = "#{BUILDPACK_CONFIG_CACHE_DIR}/#{HOOKS_RESOURCE}".freeze
+
+        # the package structure would be:
+        # wls-buildpack
+        #  -- resources
+        #      -- wls    # BUILDPACK_CONFIG_CACHE_DIR
+        #         -- hooks
+        #            --- preStart.sh
+        #            --- postStop.sh
+        #      -- custom1 # CUSTOM1_RESOURCE_PATH
+        #         -- hooks
+        #            --- preCustom1Start.sh
+        #            --- postCustom1Stop.sh
+        #         -- customType1  # CUSTOM1_TYPE1_RESOURCE_PATH
+        #            --- lib # containing jars
+        #         -- customType2  # CUSTOM1_TYPE2_RESOURCE_PATH
+        #            --- lib # containing jars
+
+        # Allow customization of resources
+        # Edit names as required
+        CUSTOM1_RESOURCE         = 'custom1'.freeze
+        CUSTOM1_TYPE1_RESOURCE   = 'custom1Type1'.freeze
+        CUSTOM1_TYPE2_RESOURCE   = 'custom1Type2'.freeze
+        PRE_CUSTOM1_START_SCRIPT = 'preCustom1Start.sh'.freeze
+
+        CUSTOM1_RESOURCE_PATH       = "#{BUILDPACK_CONFIG_CACHE_DIR}/../#{CUSTOM1_RESOURCE}".freeze
+        CUSTOM1_TYPE1_RESOURCE_PATH = "#{CUSTOM1_RESOURCE_PATH}/#{CUSTOM1_TYPE1_RESOURCE}".freeze
+        CUSTOM1_TYPE2_RESOURCE_PATH = "#{CUSTOM1_RESOURCE_PATH}/#{CUSTOM1_TYPE2_RESOURCE}".freeze
+        CUSTOM1_HOOKS_SRC_PATH      = "#{CUSTOM1_RESOURCE_PATH}/#{HOOKS_RESOURCE}".freeze
 
         # Modify the templated preStart script with actual values
 
@@ -92,7 +138,7 @@ module JavaBuildpack
           script_path = @pre_start_script.to_s
           vcap_root = Pathname.new(@application.root).parent.to_s
 
-          original = File.open(script_path, 'r') { |f| f.read }
+          original = File.open(script_path, 'r', &:read)
 
           modified = original.gsub(/REPLACE_VCAP_ROOT_MARKER/, vcap_root)
           modified = modified.gsub(/REPLACE_JAVA_ARGS_MARKER/, @droplet.java_opts.join(' '))

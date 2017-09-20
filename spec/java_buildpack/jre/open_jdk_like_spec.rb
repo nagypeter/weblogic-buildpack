@@ -1,6 +1,5 @@
-# Encoding: utf-8
 # Cloud Foundry Java Buildpack
-# Copyright 2013-2015 the original author or authors.
+# Copyright 2013-2017 the original author or authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +20,7 @@ require 'java_buildpack/component/mutable_java_home'
 require 'java_buildpack/jre/open_jdk_like'
 require 'java_buildpack/jre/open_jdk_like_jre'
 require 'java_buildpack/jre/open_jdk_like_memory_calculator'
+require 'java_buildpack/jre/open_jdk_like_security_providers'
 
 describe JavaBuildpack::Jre::OpenJDKLike do
   include_context 'component_helper'
@@ -36,7 +36,7 @@ describe JavaBuildpack::Jre::OpenJDKLike do
       'memory_calculator' => memory_calculator_configuration }
   end
 
-  let(:jre_configuration) { double('jre_configuration') }
+  let(:jre_configuration) { instance_double('jre_configuration') }
 
   let(:memory_calculator_configuration) do
     { 'memory_sizes'      => { 'metaspace' => '64m..',
@@ -45,7 +45,10 @@ describe JavaBuildpack::Jre::OpenJDKLike do
                                'metaspace' => '10',
                                'permgen'   => '10',
                                'stack'     => '5',
-                               'native'    => '10' } }
+                               'native'    => '10' },
+      'memory_initials'   => { 'heap'      => '100%',
+                               'metaspace' => '100%',
+                               'permgen'   => '100%' } }
   end
 
   it 'always supports' do
@@ -55,10 +58,12 @@ describe JavaBuildpack::Jre::OpenJDKLike do
   it 'creates submodules' do
     allow_any_instance_of(StubOpenJDKLike).to receive(:supports?).and_return false
 
-    expect(JavaBuildpack::Jre::OpenJDKLikeJre)
+    allow(JavaBuildpack::Jre::OpenJDKLikeJre)
       .to receive(:new).with(sub_configuration_context(jre_configuration).merge(component_name: 'Stub Open JDK Like'))
-    expect(JavaBuildpack::Jre::OpenJDKLikeMemoryCalculator)
+    allow(JavaBuildpack::Jre::OpenJDKLikeMemoryCalculator)
       .to receive(:new).with(sub_configuration_context(memory_calculator_configuration))
+    allow(JavaBuildpack::Jre::OpenJDKLikeSecurityProviders)
+      .to receive(:new).with(context)
 
     component.sub_components context
   end
@@ -67,14 +72,20 @@ describe JavaBuildpack::Jre::OpenJDKLike do
     java_home.version = version_7
     expect(component.command).to eq('CALCULATED_MEMORY=$($PWD/.java-buildpack/open_jdk_like/bin/' \
                                     'java-buildpack-memory-calculator-0.0.0 -memorySizes=permgen:64m.. ' \
-                                    '-memoryWeights=heap:75,permgen:10,stack:5,native:10 -totMemory=$MEMORY_LIMIT)')
+                                    '-memoryWeights=heap:75,permgen:10,stack:5,native:10 ' \
+                                    '-memoryInitials=heap:100%,permgen:100% ' \
+                                    '-totMemory=$MEMORY_LIMIT)')
   end
 
 end
 
 class StubOpenJDKLike < JavaBuildpack::Jre::OpenJDKLike
 
-  public :command, :sub_components, :supports?
+  public :command, :sub_components
+
+  def supports?
+    super
+  end
 
 end
 
